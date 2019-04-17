@@ -19,7 +19,7 @@ import tempfile
 import winreg
 import itertools
 
-from .Squid_zModem.Squid_zModem import ZModemAPI
+from Squid_zModem.Squid_zModem import ZModemAPI
 
 
 def enumerate_serial_ports():
@@ -76,6 +76,8 @@ class Squid_BT_Interface(QtWidgets.QMainWindow):
 
         # create a zmodem object
         self.ZmodemObj = ZModemAPI()
+
+        self._ser = None
 
     def _button_crtl(self, state):
         if state == 'disconnected':
@@ -251,9 +253,10 @@ class Squid_BT_Interface(QtWidgets.QMainWindow):
 
 
     def exit_handler(self):
-        if self._ser.is_open:
-            self._ser.close()
-        # print('application is ending!')
+        if self._ser is not None:
+            if self._ser.is_open:
+                self._ser.close()
+            # print('application is ending!')
 
 
 
