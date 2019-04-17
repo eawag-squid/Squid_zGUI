@@ -12,14 +12,14 @@ import serial.tools.list_ports
 import atexit
 import subprocess
 import sys
+import os
 
 import tempfile
-import shutil
 
 import winreg
 import itertools
 
-from Squid_zModem.Squid_zModem import *
+from .Squid_zModem.Squid_zModem import ZModemAPI
 
 
 def enumerate_serial_ports():
@@ -31,6 +31,7 @@ def enumerate_serial_ports():
     try:
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path)
     except WindowsError:
+        print("Your computer must have had a connection to a serial device at least one!")
         raise EnvironmentError
 
     for i in itertools.count():
@@ -41,11 +42,10 @@ def enumerate_serial_ports():
             break
 
 
-filelocations = [os.getcwd(), tempfile.mkdtemp()]
-ser = serial.Serial
+FILELOCATIONS = [os.getcwd(), tempfile.mkdtemp()]
 
 
-class MyApp(QtWidgets.QMainWindow):
+class Squid_BT_Interface(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QWidget.__init__(self)
         uic.loadUi("Squid_zGUI.ui", self)
@@ -72,7 +72,7 @@ class MyApp(QtWidgets.QMainWindow):
         self._on_btn_refresh_sport_clicked()
 
         # set temporary file folder for receiving filepath
-        self.lineEdit_file2recv.setText(filelocations[1])
+        self.lineEdit_file2recv.setText(FILELOCATIONS[1])
 
         # create a zmodem object
         self.ZmodemObj = ZModemAPI()
@@ -111,7 +111,7 @@ class MyApp(QtWidgets.QMainWindow):
             filepath, _ = QFileDialog.getOpenFileName(self, "Open file to send", "",
                                                       "Squid Config Files (*.CFG)", options=options)
             self.lineEdit_file2send.setText(filepath)
-            filelocations[0] = filepath
+            FILELOCATIONS[0] = filepath
         elif loc == 'file2recv_loc':
             filepath = QFileDialog.getExistingDirectory(
                 self,
@@ -121,7 +121,7 @@ class MyApp(QtWidgets.QMainWindow):
             )
 
             self.lineEdit_file2recv.setText(filepath)
-            filelocations[1] = filepath
+            FILELOCATIONS[1] = filepath
 
     # functions connected to GUI objects:
     def _on_btn_open_sport_clicked(self):
@@ -134,15 +134,15 @@ class MyApp(QtWidgets.QMainWindow):
             _thread.start_new_thread(self._openserialport, (sportname, ))
 
         elif buttontext == 'Disconnect':
-            ser.close()
+            self._ser.close()
             self.btn_open_Sport.setText('Connect')
-            self.lbl_status.setText('serial port ' + ser._port + ' closed')
+            self.lbl_status.setText('serial port ' + self._ser._port + ' closed')
             self._button_crtl('disconnected')
             self.filelist.clear()
 
         else:
-            if ser.is_open:
-                ser.close()
+            if self._ser.is_open:
+                self._ser.close()
             self.btn_open_Sport.setText('Connect')
             self._button_crtl('disconnected')
 
@@ -156,9 +156,9 @@ class MyApp(QtWidgets.QMainWindow):
             receivemode = self._get_radiobtn_dl_state()
             self.recv_thread_id = _thread.start_new_thread(self._receivefiles, (receivemode, ))
         else:
-            print('cancel file transfer')
+            # print('cancel file transfer')
             # FIXME: kill receive thread! For now we just let the thread crash by closing the serial port... :(
-            ser.close()
+            self._ser.close()
             self.btn_open_Sport.setText('Connect')
             self.lbl_status.setText('File transfer cancelled and serial port closed!')
             self._button_crtl('disconnected')
@@ -167,7 +167,7 @@ class MyApp(QtWidgets.QMainWindow):
 
     def _on_btn_send_click(self):
         self._button_crtl('sending')
-        self.lbl_status.setText('sending file: ' + os.path.basename(filelocations[0]))
+        self.lbl_status.setText('sending file: ' + os.path.basename(FILELOCATIONS[0]))
         _thread.start_new_thread(self._sendfile, ())
 
     def _get_radiobtn_dl_state(self):
@@ -175,7 +175,7 @@ class MyApp(QtWidgets.QMainWindow):
             return 'sel'
         else:
             return 'all'
-            print(filelocations)
+            # print(FILELOCATIONS)
 
     def _populate_file_list(self, squid_file_list):
         self.filelist.clear()
@@ -184,13 +184,12 @@ class MyApp(QtWidgets.QMainWindow):
             self.filelist.addTopLevelItem(item)
 
     def _openserialport(self, portnum):
-        global ser
 
-        # if ser.is_open:
-        #     ser.close()
-        # ser.timeout = 10
+        # if self._ser.is_open:
+        #     self._ser.close()
+        # self._ser.timeout = 10
         try:
-            ser = serial.Serial(portnum, 57600, timeout=5, writeTimeout=2)
+            self._ser = serial.Serial(portnum, 57600, timeout=5, writeTimeout=2)
         except serial.SerialException:
             self.lbl_status.setText('Failed to open serial port: ' + str(serial.SerialException))
             self.btn_open_Sport.setText('Connect')
@@ -198,25 +197,28 @@ class MyApp(QtWidgets.QMainWindow):
 
         self.btn_open_Sport.setText('Disconnect')
         self.lbl_status.setText('serial port ' + portnum + ' open, fetching available file list')
-        self.ZmodemObj.ser = ser
+        self.ZmodemObj.ser = self._ser
         squiddir = self.ZmodemObj.squid_dir()
         if not squiddir:
             self.lbl_status.setText('fetching available file list failed - SQUID did not answer!')
             return
+        ##############
+        ## add sort ##
+        ##############
         self._populate_file_list(squiddir)
         self._button_crtl('connected')
         self.lbl_status.setText('SQUID file transfer ready!')
         return True
 
     def _sendfile(self):
-        if not self.ZmodemObj.squid_send_file(filelocations[0]):
+        if not self.ZmodemObj.squid_send_file(FILELOCATIONS[0]):
             self.lbl_status.setText('File transmission failed - SQUID did not answer!')
         self._button_crtl('connected')
         self.lbl_status.setText('SQUID file transfer ready!')
 
     def _receivefiles(self, receivemode):
         self._button_crtl('receiving')
-        print('start receiving file(s) ')
+        # print('start receiving file(s) ')
         if receivemode == 'sel':
             # get selected filenames to request from the squid:
             getselected = self.filelist.selectedItems()
@@ -226,7 +228,7 @@ class MyApp(QtWidgets.QMainWindow):
                     filename = basenode.text(0)
 
                     self.lbl_status.setText('Downloading file ' + filename)
-                    if not self.ZmodemObj.squid_recv_file(filelocations[1], filename):  # FIXME: receiving of binarx files (e.g. FIRMWARE.BIN) is not working because of decoding errors in the ZModem code!
+                    if not self.ZmodemObj.squid_recv_file(FILELOCATIONS[1], filename):  # FIXME: receiving of binarx files (e.g. FIRMWARE.BIN) is not working because of decoding errors in the ZModem code!
                         self.lbl_status.setText('File transmission failed - SQUID did not answer!')
 
             else:
@@ -236,29 +238,30 @@ class MyApp(QtWidgets.QMainWindow):
 
         elif self._get_radiobtn_dl_state() == 'all':
             self.lbl_status.setText('Downloading all files on SQUID SD')
-            if not self.ZmodemObj.squid_recv_file(filelocations[1], '*'):
+            if not self.ZmodemObj.squid_recv_file(FILELOCATIONS[1], '*'):
                 self.lbl_status.setText('File transmission failed - SQUID did not answer!')
             filename = self.ZmodemObj.SquidDIR[0][0]  # get some filename to open the explorer on this file location...
 
-        if filelocations[1].find('\\') == -1:
-            subprocess.Popen(r'explorer /select,"%s"' % (filelocations[1] + '/' + filename).replace('/', '\\'))
+        if FILELOCATIONS[1].find('\\') == -1:
+            subprocess.Popen(r'explorer /select,"%s"' % (FILELOCATIONS[1] + '/' + filename).replace('/', '\\'))
         else:
-            subprocess.Popen(r'explorer /select,"%s"' % (filelocations[1] + '\\' + filename))
+            subprocess.Popen(r'explorer /select,"%s"' % (FILELOCATIONS[1] + '\\' + filename))
         self._button_crtl('connected')
         self.lbl_status.setText('SQUID file transfer ready!')
 
 
-def exit_handler():
-    if ser.is_open:
-        ser.close()
-    print('application is ending!')
+    def exit_handler(self):
+        if self._ser.is_open:
+            self._ser.close()
+        # print('application is ending!')
 
 
-atexit.register(exit_handler)
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    window = MyApp()
+    window = Squid_BT_Interface()
+    atexit.register(window.exit_handler)
     window.show()
 
 
