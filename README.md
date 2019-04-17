@@ -53,7 +53,7 @@ Install fbs using PIP: see this tutorial to get fbs up and running
 
 5) make folder resources/base/ under ../src/main/[resources/base/] and move the .ui file in the newly created resources folder!
 
-6) add the [SQUID icon](https://github.com/eawag-squid/Squid_zGUI/files/icon.ico) to the \src\main\icons\ folder 
+6) add the [SQUID icon](https://github.com/eawag-squid/Squid_zGUI/blob/master/files/icon.ico) to the \src\main\icons\ folder 
 
 7) check if your fbs project is set up correctly by running the cmd command: "fbs run"
 
