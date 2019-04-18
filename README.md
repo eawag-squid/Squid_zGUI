@@ -31,8 +31,18 @@ The modem package is based on [this]() github repository with an added send func
 
 ### SQUID_zGUI deployment and installer creation
 #### Prerequisites
-Install fbs using PIP: see this tutorial to get fbs up and running
+- Install fbs using PIP: see this tutorial to get fbs up and running
 
+- In order to create a .exe  file from your Python project the following two SDK's need to be installed and the necessary binary file locations added to the PATH variable:
+  - install [Microsoft Visual C++ 2010 Redistributable Package](https://www.microsoft.com/de-ch/download/details.aspx?id=14632)
+  - install [Windows 10 SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk)
+  - add the following directory to the PATH environment variable: "C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit"
+
+- to create a standalone installer fbs uses an application called NSIS:
+  - install [NSIS](https://nsis.sourceforge.io/Download)
+  - add the following directory to PATH: "C:\Program Files (x86)\NSIS"
+
+ 
 #### Step by step instructions
 1) create fbs project folders via cmd (navigate to or create a dedicated deploy folder in the cmd and run "fbs startproject" - follow the instructions in the cmd.)
 
@@ -57,11 +67,11 @@ Install fbs using PIP: see this tutorial to get fbs up and running
 
 7) check if your fbs project is set up correctly by running the cmd command: "fbs run"
 
-8) "compile" the python project to create an executable with "fbs freeze" (this creates a folder containing all dll, binaries and the .exe file that can be zipped and deployed as a standalone windows application)
+8) "compile" the python project to create an executable with "fbs freeze" (this creates the folder ..\target\<project name> containing all dll, binaries and the .exe file that can be zipped and deployed as a standalone windows application)
 
 9) create an NSIS installer with the command: "fbs installer"
 
-> Note: fbs might require additional build/deployment tools as for example: [NSIS installer](https://nsis.sourceforge.io/Download)
+
 
 <!--- 
 pbs freeze
